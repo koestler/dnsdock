@@ -63,3 +63,16 @@ To run an example `consul` container, supporting DNS queries for the `.consul` d
 See this article on [Docker network configuration](https://docs.docker.com/articles/networking/) for additional details on the Docker bridge interface.
 
 <img src="https://ga-beacon.appspot.com/UA-58928488-2/resolvable/readme?pixel" />
+
+## Reverse DNS
+
+Pointer records (PTR) are used to map an IP address to a hostname. For example in the hadoop world its used all the time.
+Resolvable supports PTR records, and they are reversing to the container’s fully qualified hostname, with `LOCAL_DOMAIN` included.
+You can use `dig -x` to test it:
+
+    $ dig +short myname.example.com
+    172.17.0.3
+
+    $ dig +short -x 172.17.0.3
+    myname.example.com.
+
