@@ -1,5 +1,0 @@
-machine:
-  environment:
-    DESTROY_NATIVE_CONTAINERS: 1
-  services:
-    - docker
