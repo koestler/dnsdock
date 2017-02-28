@@ -198,7 +198,7 @@ func run() error {
 		exitReason <- nil
 	}()
 
-	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///tmp/docker.sock"))
+	docker, err := dockerapi.NewClient(getopt("DOCKER_HOST", "unix:///var/run/docker.sock"))
 	if err != nil {
 		return err
 	}
