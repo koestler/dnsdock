@@ -14,9 +14,6 @@ type Resolver interface {
 	AddHost(id string, addr net.IP, name string, aliases ...string) error
 	RemoveHost(id string) error
 
-	AddUpstream(id string, addr net.IP, port int, domain ...string) error
-	RemoveUpstream(id string) error
-
 	Listen() error
 	Close()
 }
@@ -33,22 +30,19 @@ type serversEntry struct {
 }
 
 type dnsResolver struct {
-	hostMutex     sync.RWMutex
-	upstreamMutex sync.RWMutex
+	hostMutex sync.RWMutex
 
-	Port     int
-	hosts    map[string]*hostsEntry
-	upstream map[string]*serversEntry
-	server   *dns.Server
-	stopped  chan struct{}
+	Port    int
+	hosts   map[string]*hostsEntry
+	server  *dns.Server
+	stopped chan struct{}
 }
 
 func NewResolver() (*dnsResolver, error) {
 	return &dnsResolver{
-		Port:     53,
-		hosts:    make(map[string]*hostsEntry),
-		upstream: make(map[string]*serversEntry),
-		stopped:  make(chan struct{}),
+		Port:    53,
+		hosts:   make(map[string]*hostsEntry),
+		stopped: make(chan struct{}),
 	}, nil
 }
 
@@ -65,22 +59,6 @@ func (r *dnsResolver) RemoveHost(id string) error {
 	defer r.hostMutex.Unlock()
 
 	delete(r.hosts, id)
-	return nil
-}
-
-func (r *dnsResolver) AddUpstream(id string, addr net.IP, port int, domains ...string) error {
-	r.upstreamMutex.Lock()
-	defer r.upstreamMutex.Unlock()
-
-	r.upstream[id] = &serversEntry{Address: addr, Port: port, Domains: domains}
-	return nil
-}
-
-func (r *dnsResolver) RemoveUpstream(id string) error {
-	r.upstreamMutex.Lock()
-	defer r.upstreamMutex.Unlock()
-
-	delete(r.upstream, id)
 	return nil
 }
 
@@ -160,47 +138,7 @@ func (r *dnsResolver) responseForQuery(query *dns.Msg) (*dns.Msg, error) {
 		}
 	}
 
-	// What if RecursionDesired = false?
-	if resp, err := r.findUpstream(name, query); resp != nil || err != nil {
-		return resp, err
-	}
-
 	return dnsNotFound(query), nil
-}
-
-func (r *dnsResolver) upstreamForHost(name string) (matchedUpstream *serversEntry) {
-	r.upstreamMutex.RLock()
-	defer r.upstreamMutex.RUnlock()
-
-	matchedDomain := ""
-
-	for _, upstream := range r.upstream {
-		if len(upstream.Domains) == 0 && matchedDomain == "" {
-			matchedUpstream = upstream
-		}
-
-		for _, domain := range upstream.Domains {
-			domain = dns.Fqdn(domain)
-			if len(domain) > len(matchedDomain) && (domain == name || strings.HasSuffix(name, "."+domain)) {
-				matchedDomain = domain
-				matchedUpstream = upstream
-			}
-		}
-	}
-
-	return
-}
-
-func (r *dnsResolver) findUpstream(name string, msg *dns.Msg) (*dns.Msg, error) {
-	upstream := r.upstreamForHost(name)
-	if upstream == nil || upstream.Address == nil {
-		return nil, nil
-	}
-
-	c := &dns.Client{Net: "udp"}
-	addr := fmt.Sprintf("%s:%d", upstream.Address.String(), upstream.Port)
-	resp, _, err := c.Exchange(msg, addr)
-	return resp, err
 }
 
 func (r *dnsResolver) findHost(name string) (addrs []net.IP) {

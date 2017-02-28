@@ -7,11 +7,8 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
-
-	"github.com/miekg/dns"
 
 	"github.com/koestler/resolvable/resolver"
 
@@ -121,35 +118,6 @@ func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEven
 			return err
 		}
 
-		env := parseContainerEnv(container.Config.Env, "DNS_")
-		if dnsDomains, ok := env["DNS_RESOLVES"]; ok {
-			if dnsDomains == "" {
-				return errors.New("empty DNS_RESOLVES, should contain a comma-separated list with at least one domain")
-			}
-
-			port := 53
-			if portString := env["DNS_PORT"]; portString != "" {
-				port, err = strconv.Atoi(portString)
-				if err != nil {
-					return errors.New("invalid DNS_PORT \"" + portString + "\", should contain a number")
-				}
-			}
-
-			domains := strings.Split(dnsDomains, ",")
-			err = dns.AddUpstream(containerId, addr, port, domains...)
-			if err != nil {
-				return err
-			}
-		}
-
-		if bridge := container.NetworkSettings.Bridge; bridge != "" {
-			bridgeAddr := net.ParseIP(container.NetworkSettings.Gateway)
-			err = dns.AddHost("bridge:"+bridge, bridgeAddr, bridge)
-			if err != nil {
-				return err
-			}
-		}
-
 		return nil
 	}
 
@@ -178,7 +146,6 @@ func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEven
 				}
 			case "die":
 				dns.RemoveHost(msg.ID)
-				dns.RemoveUpstream(msg.ID)
 			}
 		}(msg)
 	}
@@ -232,21 +199,6 @@ func run() error {
 	localDomain := os.Getenv("LOCAL_DOMAIN")
 	if localDomain == "" {
 		localDomain = "docker"
-	}
-	dnsResolver.AddUpstream(localDomain, nil, 0, localDomain)
-
-	resolvConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-	if err != nil {
-		return err
-	}
-	resolvConfigPort, err := strconv.Atoi(resolvConfig.Port)
-	if err != nil {
-		return err
-	}
-	for _, server := range resolvConfig.Servers {
-		if server != address {
-			dnsResolver.AddUpstream("resolv.conf:"+server, net.ParseIP(server), resolvConfigPort)
-		}
 	}
 
 	go func() {
