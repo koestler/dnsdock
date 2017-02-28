@@ -1,9 +1,6 @@
-FROM gliderlabs/alpine:3.2
+FROM golang:1.8-wheezy
+
+COPY . /go/src/github.com/koestler/resolvable/
+RUN cd /go/src/github.com/koestler/resolvable/ && ./build.sh
+
 ENTRYPOINT ["/bin/resolvable"]
-
-COPY ./config /config
-COPY . /src
-RUN cd /src && ./build.sh "$(cat VERSION)"
-
-ONBUILD COPY ./modules.go /src/modules.go
-ONBUILD RUN cd /src && ./build.sh "$(cat VERSION)-custom"
