@@ -13,7 +13,7 @@ import (
 
 	"github.com/miekg/dns"
 
-	"github.com/gliderlabs/resolvable/resolver"
+	"github.com/koestler/resolvable/resolver"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
@@ -265,7 +265,7 @@ func main() {
 		fmt.Println(Version)
 		os.Exit(0)
 	}
-	log.Printf("Starting resolvable %s ...", Version)
+	log.Printf("Starting koestler-resolvable %s ...", Version)
 
 	err := run()
 	if err != nil {

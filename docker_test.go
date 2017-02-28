@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gliderlabs/resolvable/dockerpool"
+	"github.com/koestler/resolvable/dockerpool"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
