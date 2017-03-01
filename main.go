@@ -75,48 +75,86 @@ func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEven
 		containerDomain = "." + containerDomain
 	}
 
-	getAddress := func(container *dockerapi.Container) (net.IP, error) {
-		for {
-			if container.NetworkSettings.IPAddress != "" {
-				return net.ParseIP(container.NetworkSettings.IPAddress), nil
-			}
-
-			if container.HostConfig.NetworkMode == "host" {
-				if hostIP == nil {
-					return nil, errors.New("IP not available with network mode \"host\"")
-				} else {
-					return hostIP, nil
-				}
-			}
-
-			if strings.HasPrefix(container.HostConfig.NetworkMode, "container:") {
-				otherId := container.HostConfig.NetworkMode[len("container:"):]
-				var err error
-				container, err = docker.InspectContainer(otherId)
-				if err != nil {
-					return nil, err
-				}
-				continue
-			}
-
-			return nil, fmt.Errorf("unknown network mode", container.HostConfig.NetworkMode)
-		}
-	}
-
 	addContainer := func(containerId string) error {
 		container, err := docker.InspectContainer(containerId)
 		if err != nil {
 			return err
 		}
-		addr, err := getAddress(container)
+
+		log.Printf("add container (name=%v, id=%v)", container.Name, containerId)
+
+		first := true
+
+		// register a hostname for each network of this container
+		for netId, network := range container.NetworkSettings.Networks {
+			// build an unique container name by concatenating the network and the container name
+			containerNetName := netId + "_" + strings.Trim(container.Name, "/_")
+
+			// explode this unique string by _, reverse order, append docker and
+			// implode using . (dcprojet_somenet -> somenet.dcproject.docker)
+			// during this:
+			// - ignore "default" as part of the domain
+			// - skip duplicate string a.a.b -> a.b
+			domainParts := []string{}
+			var lastP string
+			for _, p := range strings.Split(containerNetName, "_") {
+				// - ignore "default" as part of the domain
+				if strings.Compare(p, "default") == 0 {
+					continue
+				}
+
+				// - skip duplicate string a.a.b -> a.b
+				if strings.Compare(p, lastP) == 0 {
+					continue
+				}
+
+				domainParts = append([]string{p}, domainParts...)
+				lastP = p
+			}
+
+			// add .docker at the end
+			domainParts = append(domainParts, "docker")
+			domain := strings.Join(domainParts, ".")
+
+			// generate aliases
+			aliases := make([]string, 0, 5)
+
+			// remove 1. at the beginning (to make first instance available w/o a number)
+			// if this succeeds, use the version w/o 1. as domain an register the one with 1. as alias
+			if len(domainParts) > 0 && strings.Compare(domainParts[0], "1") == 0 {
+				aliases = append(aliases, domain)
+				domain = strings.Join(domainParts[1:], ".")
+			}
+
+			// for first network only: generate alias by the first 12 characters of the containerId
+			if first {
+				aliases = append(aliases, containerId[:12]+".docker")
+				first = false
+			}
+
+			log.Printf("--> add records (ip='%v', domain='%v', aliases=%v", network.IPAddress, domain, aliases)
+
+			addr := net.ParseIP(network.IPAddress)
+			err = dns.AddHost(containerId+"_"+netId, addr, domain, aliases...)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	removeContainer := func(containerId string) error {
+		container, err := docker.InspectContainer(containerId)
 		if err != nil {
 			return err
 		}
 
-		err = dns.AddHost(containerId, addr, fmt.Sprintf("%s.%s", container.Config.Hostname, container.Config.Domainname), container.Name[1:]+containerDomain)
-		if err != nil {
-			return err
+		for netId, _ := range container.NetworkSettings.Networks {
+			dns.RemoveHost(containerId + "_" + netId)
 		}
+
+		log.Printf("remove container (name=%v, id=%v)", container.Name, containerId)
 
 		return nil
 	}
@@ -126,6 +164,7 @@ func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEven
 		return err
 	}
 
+	// add existing containers
 	for _, listing := range containers {
 		if err := addContainer(listing.ID); err != nil {
 			log.Printf("error adding container %s: %s\n", listing.ID[:12], err)
@@ -137,6 +176,7 @@ func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEven
 	}
 	defer dns.Close()
 
+	// handle docker api events
 	for msg := range events {
 		go func(msg *dockerapi.APIEvents) {
 			switch msg.Status {
@@ -145,7 +185,9 @@ func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEven
 					log.Printf("error adding container %s: %s\n", msg.ID[:12], err)
 				}
 			case "die":
-				dns.RemoveHost(msg.ID)
+				if err := removeContainer(msg.ID); err != nil {
+					log.Printf("error adding container %s: %s\n", msg.ID[:12], err)
+				}
 			}
 		}(msg)
 	}

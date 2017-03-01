@@ -50,7 +50,9 @@ func (r *dnsResolver) AddHost(id string, addr net.IP, name string, aliases ...st
 	r.hostMutex.Lock()
 	defer r.hostMutex.Unlock()
 
-	r.hosts[id] = &hostsEntry{Address: addr, Names: append([]string{name}, aliases...)}
+	names := append([]string{name}, aliases...)
+
+	r.hosts[id] = &hostsEntry{Address: addr, Names: names}
 	return nil
 }
 
