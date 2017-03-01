@@ -1,0 +1,11 @@
+FROM golang:1.8-wheezy
+
+COPY . /go/src/github.com/koestler/resolvable/
+RUN cd /go/src/github.com/koestler/resolvable/ && ./build.sh
+EXPORT /bin/resolvable
+
+FROM scratch
+IMPORT resolvable /resolvable
+ENTRYPOINT ["/resolvable"]
+TAG koestler/resolvable:latest
+PUSH koestler/resolvable:latest

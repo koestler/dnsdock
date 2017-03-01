@@ -3,6 +3,6 @@
 set +x
 
 go get
-go build
+CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -a -tags netgo -ldflags '-w'
 
 mv resolvable /bin/resolvable
