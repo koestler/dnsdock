@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/koestler/resolvable/resolver"
+	"github.com/koestler/dnsdock/resolver"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
@@ -259,10 +259,10 @@ func main() {
 		fmt.Println(Version)
 		os.Exit(0)
 	}
-	log.Printf("Starting koestler-resolvable %s ...", Version)
+	log.Printf("Starting koestler-dnsdock %s ...", Version)
 
 	err := run()
 	if err != nil {
-		log.Fatal("resolvable: ", err)
+		log.Fatal("dnsdock: ", err)
 	}
 }
