@@ -93,13 +93,18 @@ func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEven
 			// explode this unique string by _, reverse order, append docker and
 			// implode using . (dcprojet_somenet -> somenet.dcproject.docker)
 			// during this:
-			// - ignore "default" as part of the domain
+			// - ignore "default" and "bridge" as part of the domain
 			// - skip duplicate string a.a.b -> a.b
 			domainParts := []string{}
 			var lastP string
 			for _, p := range strings.Split(containerNetName, "_") {
 				// - ignore "default" as part of the domain
 				if strings.Compare(p, "default") == 0 {
+					continue
+				}
+
+				// - ignore "bridge" as part of the domain
+				if strings.Compare(p, "bridge") == 0 {
 					continue
 				}
 
