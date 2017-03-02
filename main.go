@@ -200,6 +200,35 @@ func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEven
 	return errors.New("docker event loop closed")
 }
 
+func writeDnsmasqd(ipAddress string) error {
+
+	filepath := "/etc/dnsmasq.d/dnsdock"
+
+	log.Printf("write dnsmasq configurtion to: %s", filepath)
+
+	// generate configuration file
+	conf := make([]string, 0, 17)
+
+	// add forward dns for *.docker
+	conf = append(conf, fmt.Sprintf("server=/docker/%s", ipAddress))
+
+	// add reverse dns for 172.16.0.0/12
+	for i := 16; i < 32; i++ {
+		conf = append(conf, fmt.Sprintf("server=/%d.172.in-addr.arpa/%s", i, ipAddress))
+	}
+
+	// write configuration file
+	f, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	f.WriteString(strings.Join(conf, "\n") + "\n")
+
+	return nil
+}
+
 func run() error {
 	// set up the signal handler first to ensure cleanup is handled if a signal is
 	// caught while initializing
@@ -222,6 +251,10 @@ func run() error {
 		return err
 	}
 	log.Println("got local address:", address)
+
+	if err := writeDnsmasqd(address); err != nil {
+		log.Printf("[ERROR] could not write dnsmasq conf: %v", err)
+	}
 
 	for name, conf := range resolver.HostResolverConfigs.All() {
 		err := conf.StoreAddress(address)
