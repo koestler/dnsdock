@@ -87,6 +87,8 @@ func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEven
 
 		// register a hostname for each network of this container
 		for netId, network := range container.NetworkSettings.Networks {
+			log.Printf("  found network (name=%v)", netId)
+
 			// build an unique container name by concatenating the network and the container name
 			containerNetName := netId + "_" + strings.Trim(container.Name, "/_")
 
@@ -137,7 +139,7 @@ func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEven
 				first = false
 			}
 
-			log.Printf("--> add records (ip='%v', domain='%v', aliases=%v", network.IPAddress, domain, aliases)
+			log.Printf("  --> add records (ip='%v', domain='%v', aliases=%v)", network.IPAddress, domain, aliases)
 
 			addr := net.ParseIP(network.IPAddress)
 			err = dns.AddHost(containerId+"_"+netId, addr, domain, aliases...)
