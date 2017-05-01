@@ -32,17 +32,20 @@ type serversEntry struct {
 type dnsResolver struct {
 	hostMutex sync.RWMutex
 
-	Port    int
-	hosts   map[string]*hostsEntry
-	server  *dns.Server
-	stopped chan struct{}
+	Port       int
+	hosts      map[string]*hostsEntry
+	serverUdp  *dns.Server
+	serverTcp  *dns.Server
+	stoppedUdp chan struct{}
+	stoppedTcp chan struct{}
 }
 
 func NewResolver() (*dnsResolver, error) {
 	return &dnsResolver{
-		Port:    53,
-		hosts:   make(map[string]*hostsEntry),
-		stopped: make(chan struct{}),
+		Port:       53,
+		hosts:      make(map[string]*hostsEntry),
+		stoppedUdp: make(chan struct{}),
+		stoppedTcp: make(chan struct{}),
 	}, nil
 }
 
@@ -67,46 +70,81 @@ func (r *dnsResolver) RemoveHost(id string) error {
 func (r *dnsResolver) Listen() error {
 	addr := fmt.Sprintf(":%d", r.Port)
 
-	listenAddr, err := net.ResolveUDPAddr("udp4", addr)
+	// create UDP listener
+	listenAddrUdp, err := net.ResolveUDPAddr("udp4", addr)
 	if err != nil {
 		return err
 	}
 
-	conn, err := net.ListenUDP("udp4", listenAddr)
+	connUdp, err := net.ListenUDP("udp4", listenAddrUdp)
 	if err != nil {
 		return err
 	}
 
-	r.Port = conn.LocalAddr().(*net.UDPAddr).Port
+	// create TCP listener
+	listenAddrTcp, err := net.ResolveTCPAddr("tcp4", addr)
+	if err != nil {
+		return err
+	}
 
-	startupError := make(chan error)
-	r.server = &dns.Server{Handler: r, PacketConn: conn, NotifyStartedFunc: func() {
-		startupError <- nil
+	connTcp, err := net.ListenTCP("tcp4", listenAddrTcp)
+	if err != nil {
+		return err
+	}
+
+	// start DNS server
+	startupErrorUdp := make(chan error)
+	startupErrorTcp := make(chan error)
+
+	r.serverUdp = &dns.Server{Handler: r, PacketConn: connUdp, NotifyStartedFunc: func() {
+		startupErrorUdp <- nil
+	}}
+	r.serverTcp = &dns.Server{Handler: r, Listener: connTcp, NotifyStartedFunc: func() {
+		startupErrorTcp <- nil
 	}}
 
 	go func() {
 		select {
-		case startupError <- r.run():
+		case startupErrorUdp <- r.runUdp():
 		default:
 		}
 	}()
 
-	return <-startupError
+	go func() {
+		select {
+		case startupErrorTcp <- r.runTcp():
+		default:
+		}
+	}()
+
+	errorUdp := <-startupErrorUdp
+	errorTcp := <-startupErrorTcp
+
+	if errorUdp != nil {
+		return errorUdp
+	}
+	return errorTcp
 }
 
-func (r *dnsResolver) run() error {
-	defer close(r.stopped)
-	return r.server.ActivateAndServe()
+func (r *dnsResolver) runUdp() error {
+	defer close(r.stoppedUdp)
+	return r.serverUdp.ActivateAndServe()
+}
+
+func (r *dnsResolver) runTcp() error {
+	defer close(r.stoppedTcp)
+	return r.serverTcp.ActivateAndServe()
 }
 
 func (r *dnsResolver) Wait() error {
-	<-r.stopped
+	<-r.stoppedUdp
+	<-r.stoppedTcp
 	return nil
 }
 
 func (r *dnsResolver) Close() {
-	if r.server != nil {
-		r.server.Shutdown()
+	if r.serverUdp != nil {
+		r.serverUdp.Shutdown()
 	}
 }
 
