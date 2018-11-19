@@ -1,11 +1,8 @@
-FROM golang:1.8-wheezy
+FROM golang:1.11-stretch as gobuild
 
 COPY . /go/src/github.com/koestler/dnsdock/
 RUN cd /go/src/github.com/koestler/dnsdock/ && ./build.sh
-EXPORT /bin/dnsdock
 
 FROM scratch
-IMPORT dnsdock /dnsdock
+COPY --from=gobuild /go/src/github.com/koestler/dnsdock/dnsdock /dnsdock
 ENTRYPOINT ["/dnsdock"]
-TAG koestler/dnsdock:latest
-PUSH koestler/dnsdock:latest
