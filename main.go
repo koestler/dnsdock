@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 
@@ -126,11 +127,26 @@ func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEven
 			// generate aliases
 			aliases := make([]string, 0, 5)
 
-			// remove 1. at the beginning (to make first instance available w/o a number)
+			// docker-compose uses the following naming scheme:
+			// v1.13.0 : <project>_<service>_<index>_<slug> (-> case A)
+			// before  : <project>_<service>_<index>        (-> case B)
+
+			// case B: remove only index
 			// if this succeeds, use the version w/o 1. as domain an register the one with 1. as alias
 			if len(domainParts) > 0 && strings.Compare(domainParts[0], "1") == 0 {
 				aliases = append(aliases, domain)
 				domain = strings.Join(domainParts[1:], ".")
+			}
+
+			// case A: remove slug and index
+			// if this succeeds, use the version w/o slug/index. as domain an register the one with index and slug as alias
+			if rHex, _ := regexp.Compile("^[0-9a-f]{2,}$"); len(domainParts) > 0 &&
+				strings.Compare(domainParts[1], "1") == 0 &&
+				rHex.Match([]byte(domainParts[0])) {
+
+				aliases = append(aliases, domain)
+				aliases = append(aliases, strings.Join(domainParts[1:], "."))
+				domain = strings.Join(domainParts[2:], ".")
 			}
 
 			// for first network only: generate alias by the first 12 characters of the containerId
