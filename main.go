@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/koestler/dnsdock/httpServer"
 	"github.com/koestler/dnsdock/resolver"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
@@ -280,6 +281,12 @@ func run() error {
 	if localDomain == "" {
 		localDomain = "docker"
 	}
+
+	// start http server
+	env := &httpServer.Environment{
+		DnsResolver: dnsResolver,
+	}
+	httpServer.Run("", 80, env)
 
 	go func() {
 		dnsResolver.Wait()
