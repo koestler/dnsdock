@@ -229,7 +229,7 @@ func TestWaitBeforeListen(t *testing.T) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func startResolver(resolver *dnsResolver) error {
+func startResolver(resolver *DnsResolver) error {
 	resolver.Port = 0
 	if err := resolver.Listen(); err != nil {
 		return err
@@ -237,7 +237,7 @@ func startResolver(resolver *dnsResolver) error {
 	return nil
 }
 
-func runResolver() (*dnsResolver, error) {
+func runResolver() (*DnsResolver, error) {
 	resolver, err := NewResolver()
 	if err == nil {
 		err = startResolver(resolver)

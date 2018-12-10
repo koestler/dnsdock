@@ -23,7 +23,7 @@ type hostsEntry struct {
 	Names   []string
 }
 
-type dnsResolver struct {
+type DnsResolver struct {
 	hostMutex sync.RWMutex
 
 	Port       int
@@ -34,8 +34,8 @@ type dnsResolver struct {
 	stoppedTcp chan struct{}
 }
 
-func NewResolver() (*dnsResolver, error) {
-	return &dnsResolver{
+func NewResolver() (*DnsResolver, error) {
+	return &DnsResolver{
 		Port:       53,
 		hosts:      make(map[string]*hostsEntry),
 		stoppedUdp: make(chan struct{}),
@@ -43,7 +43,7 @@ func NewResolver() (*dnsResolver, error) {
 	}, nil
 }
 
-func (r *dnsResolver) AddHost(id string, addr net.IP, name string, aliases ...string) error {
+func (r *DnsResolver) AddHost(id string, addr net.IP, name string, aliases ...string) error {
 	r.hostMutex.Lock()
 	defer r.hostMutex.Unlock()
 
@@ -53,7 +53,7 @@ func (r *dnsResolver) AddHost(id string, addr net.IP, name string, aliases ...st
 	return nil
 }
 
-func (r *dnsResolver) RemoveHost(id string) error {
+func (r *DnsResolver) RemoveHost(id string) error {
 	r.hostMutex.Lock()
 	defer r.hostMutex.Unlock()
 
@@ -61,7 +61,7 @@ func (r *dnsResolver) RemoveHost(id string) error {
 	return nil
 }
 
-func (r *dnsResolver) Listen() error {
+func (r *DnsResolver) Listen() error {
 	addr := fmt.Sprintf(":%d", r.Port)
 
 	// create UDP listener
@@ -120,29 +120,29 @@ func (r *dnsResolver) Listen() error {
 	return errorTcp
 }
 
-func (r *dnsResolver) runUdp() error {
+func (r *DnsResolver) runUdp() error {
 	defer close(r.stoppedUdp)
 	return r.serverUdp.ActivateAndServe()
 }
 
-func (r *dnsResolver) runTcp() error {
+func (r *DnsResolver) runTcp() error {
 	defer close(r.stoppedTcp)
 	return r.serverTcp.ActivateAndServe()
 }
 
-func (r *dnsResolver) Wait() error {
+func (r *DnsResolver) Wait() error {
 	<-r.stoppedUdp
 	<-r.stoppedTcp
 	return nil
 }
 
-func (r *dnsResolver) Close() {
+func (r *DnsResolver) Close() {
 	if r.serverUdp != nil {
 		r.serverUdp.Shutdown()
 	}
 }
 
-func (r *dnsResolver) ServeDNS(w dns.ResponseWriter, query *dns.Msg) {
+func (r *DnsResolver) ServeDNS(w dns.ResponseWriter, query *dns.Msg) {
 	response, err := r.responseForQuery(query)
 	if err != nil {
 		log.Printf("response error: %T %s", err, err)
@@ -158,7 +158,7 @@ func (r *dnsResolver) ServeDNS(w dns.ResponseWriter, query *dns.Msg) {
 	}
 }
 
-func (r *dnsResolver) responseForQuery(query *dns.Msg) (*dns.Msg, error) {
+func (r *DnsResolver) responseForQuery(query *dns.Msg) (*dns.Msg, error) {
 	// TODO multiple queries?
 	name := query.Question[0].Name
 
@@ -175,7 +175,7 @@ func (r *dnsResolver) responseForQuery(query *dns.Msg) (*dns.Msg, error) {
 	return dnsNotFound(query), nil
 }
 
-func (r *dnsResolver) findHost(name string) (addrs []net.IP) {
+func (r *DnsResolver) findHost(name string) (addrs []net.IP) {
 	r.hostMutex.RLock()
 	defer r.hostMutex.RUnlock()
 
@@ -189,7 +189,18 @@ func (r *dnsResolver) findHost(name string) (addrs []net.IP) {
 	return
 }
 
-func (r *dnsResolver) findReverse(address string) (hosts []string) {
+func (r *DnsResolver) GetHosts() (hosts map[string]hostsEntry) {
+	r.hostMutex.RLock()
+	defer r.hostMutex.RUnlock()
+
+	hosts = make(map[string]hostsEntry, len(r.hosts))
+	for  id, host := range r.hosts {
+		hosts[id] = *host
+	}
+	return
+}
+
+func (r *DnsResolver) findReverse(address string) (hosts []string) {
 	r.hostMutex.RLock()
 	defer r.hostMutex.RUnlock()
 
