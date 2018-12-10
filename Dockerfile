@@ -1,8 +1,12 @@
 FROM golang:1.11-stretch as gobuild
 
 COPY . /go/src/github.com/koestler/dnsdock/
-RUN cd /go/src/github.com/koestler/dnsdock/ && ./build.sh
+WORKDIR /go/src/github.com/koestler/dnsdock/
+
+RUN go get -v
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -a -tags netgo -ldflags '-w'
+RUN mv dnsdock /go/bin/dnsdock
 
 FROM scratch
-COPY --from=gobuild /go/src/github.com/koestler/dnsdock/dnsdock /dnsdock
+COPY --from=gobuild /go/bin/dnsdock /dnsdock
 ENTRYPOINT ["/dnsdock"]
