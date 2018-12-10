@@ -23,12 +23,6 @@ type hostsEntry struct {
 	Names   []string
 }
 
-type serversEntry struct {
-	Address net.IP
-	Port    int
-	Domains []string
-}
-
 type dnsResolver struct {
 	hostMutex sync.RWMutex
 
