@@ -42,24 +42,6 @@ func ipAddress() (string, error) {
 	return "", errors.New("no addresses found")
 }
 
-func parseContainerEnv(containerEnv []string, prefix string) map[string]string {
-	parsed := make(map[string]string)
-
-	for _, env := range containerEnv {
-		if !strings.HasPrefix(env, prefix) {
-			continue
-		}
-		keyVal := strings.SplitN(env, "=", 2)
-		if len(keyVal) > 1 {
-			parsed[keyVal[0]] = keyVal[1]
-		} else {
-			parsed[keyVal[0]] = ""
-		}
-	}
-
-	return parsed
-}
-
 func registerContainers(docker *dockerapi.Client, events chan *dockerapi.APIEvents, dns resolver.Resolver, containerDomain string, hostIP net.IP) error {
 	// TODO add an options struct instead of passing all as parameters
 	// though passing the events channel from an options struct was triggering
