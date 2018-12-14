@@ -257,20 +257,13 @@ func run() error {
 		log.Printf("[ERROR] could not write dnsmasq conf: %v", err)
 	}
 
-	for name, conf := range resolver.HostResolverConfigs.All() {
-		err := conf.StoreAddress(address)
-		if err != nil {
-			log.Printf("[ERROR] error in %s: %s", name, err)
-		}
-		defer conf.Clean()
-	}
-
 	var hostIP net.IP
 	if envHostIP := os.Getenv("HOST_IP"); envHostIP != "" {
 		hostIP = net.ParseIP(envHostIP)
 		log.Println("using address for --net=host:", hostIP)
 	}
 
+	/// dns dnsResolver
 	dnsResolver, err := resolver.NewResolver()
 	if err != nil {
 		return err
