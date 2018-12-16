@@ -1,6 +1,11 @@
 package httpServer
 
 var wsRoutes = WsRoutes{
+	WsRoute{
+		"hosts",
+		"/api/v0/ws/Hosts",
+		HandleWsHosts,
+	},
 }
 
 var httpRoutes = HttpRoutes{
@@ -8,7 +13,7 @@ var httpRoutes = HttpRoutes{
 		"HostsAll",
 		"GET",
 		"/api/v0/Hosts",
-		HandleHostsGet,
+		HandleGetHosts,
 	},
 	HttpRoute{
 		"ApiIndex",

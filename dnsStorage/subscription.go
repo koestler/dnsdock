@@ -17,16 +17,16 @@ func (d *DnsStorage) MainRoutine() {
 
 func (d *DnsStorage) Subscribe() (s *Subscription) {
 	s = &Subscription{
-		onAdd:    make(chan Host, 4),
-		onRemove: make(chan string, 4),
+		OnAdd:    make(chan Host, 4),
+		OnRemove: make(chan string, 4),
 	}
 	d.subscribeChannel <- s;
 	return
 }
 
 func (d *DnsStorage) Unsubscribe(s *Subscription) {
-	close(s.onAdd)
-	close(s.onRemove)
+	close(s.OnAdd)
+	close(s.OnRemove)
 	d.unsubscribeChannel <- s;
 }
 
@@ -34,16 +34,17 @@ func (d *DnsStorage) handleAddHost(host Host) {
 	// add to hosts list
 	d.hostsMutex.Lock()
 	_, exists := d.hosts[host.Id]
-	if !exists {
-		d.hosts[host.Id] = host
+	if exists {
 		d.hostsMutex.Unlock()
 		return
 	}
+
+	d.hosts[host.Id] = host
 	d.hostsMutex.Unlock()
 
 	// publish to subscribes
 	for subscription, _ := range d.subscriptions {
-		subscription.onAdd <- host
+		subscription.OnAdd <- host
 	}
 }
 
@@ -60,6 +61,6 @@ func (d *DnsStorage) handleRemoveHost(hostId string) {
 
 	// publish to subscribes
 	for subscription, _ := range d.subscriptions {
-		subscription.onRemove <- hostId
+		subscription.OnRemove <- hostId
 	}
 }

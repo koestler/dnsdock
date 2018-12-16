@@ -1,7 +1,6 @@
 package dnsStorage
 
 import (
-	"log"
 	"net"
 	"sync"
 )
@@ -31,14 +30,14 @@ type DnsStorage struct {
 }
 
 type Subscription struct {
-	onAdd    chan Host
-	onRemove chan string
+	OnAdd         chan Host
+	OnRemove      chan string
 }
 
 func NewDnsStorage() (dnsStorage *DnsStorage) {
 	dnsStorage = &DnsStorage{
-		hosts: make(Hosts),
-
+		hosts:              make(Hosts),
+		subscriptions:      make(map[*Subscription]bool),
 		subscribeChannel:   make(chan *Subscription),
 		unsubscribeChannel: make(chan *Subscription),
 		addHostChannel:     make(chan Host, 4),
@@ -52,10 +51,8 @@ func NewDnsStorage() (dnsStorage *DnsStorage) {
 
 func (d *DnsStorage) AddHost(host Host) {
 	d.addHostChannel <- host
-	log.Printf("dnsStorage: AddHost: %v", host)
 }
 
 func (d *DnsStorage) RemoveHost(id string) {
 	d.removeHostChannel <- id
-	log.Printf("dnsStorage: RemoveHost: %v", id)
 }

@@ -31,17 +31,9 @@ func newRouter(logger io.Writer, env *Environment) *mux.Router {
 		var handler http.Handler
 		handler = Handler{Env: env, Handle: route.HandlerFunc}
 
-		if logger != nil {
-
-		}
-		if logger != nil {
-			handler = apachelog.CombinedLog.Wrap(handler, logger)
-		}
-
 		router.Path(route.Pattern).
 			Name(route.Name).
 			Handler(handler)
-
 	}
 
 	// setup normal http routes
@@ -56,7 +48,6 @@ func newRouter(logger io.Writer, env *Environment) *mux.Router {
 			Path(route.Pattern).
 			Name(route.Name).
 			Handler(handler)
-
 	}
 
 	return router
