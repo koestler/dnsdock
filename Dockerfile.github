@@ -8,5 +8,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -a -tags netgo -ldfl
 RUN mv dnsdock /go/bin/dnsdock
 
 FROM scratch
+EXPOSE 80/tcp
+EXPOSE 53/tcp
+EXPOSE 53/udp
 COPY --from=gobuild /go/bin/dnsdock /dnsdock
 ENTRYPOINT ["/dnsdock"]

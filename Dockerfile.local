@@ -1,3 +1,7 @@
 FROM scratch
+EXPOSE 80/tcp
+EXPOSE 53/tcp
+EXPOSE 53/udp
+
 COPY ./dnsdock /dnsdock
 ENTRYPOINT ["/dnsdock"]
