@@ -2,12 +2,10 @@ package resolver
 
 import (
 	"fmt"
+	"github.com/koestler/dnsdock/dnsStorage"
+	"github.com/miekg/dns"
 	"log"
 	"net"
-	"strings"
-	"sync"
-
-	"github.com/miekg/dns"
 )
 
 type Resolver interface {
@@ -18,46 +16,37 @@ type Resolver interface {
 	Close()
 }
 
-type hostsEntry struct {
-	Address net.IP
-	Names   []string
-}
-
 type DnsResolver struct {
-	hostMutex sync.RWMutex
+	Storage *dnsStorage.DnsStorage
 
 	Port       int
-	hosts      map[string]*hostsEntry
 	serverUdp  *dns.Server
 	serverTcp  *dns.Server
 	stoppedUdp chan struct{}
 	stoppedTcp chan struct{}
 }
 
-func NewResolver() (*DnsResolver, error) {
+func NewResolver(storage *dnsStorage.DnsStorage) (*DnsResolver, error) {
 	return &DnsResolver{
+		Storage:    storage,
 		Port:       53,
-		hosts:      make(map[string]*hostsEntry),
 		stoppedUdp: make(chan struct{}),
 		stoppedTcp: make(chan struct{}),
 	}, nil
 }
 
 func (r *DnsResolver) AddHost(id string, addr net.IP, name string, aliases ...string) error {
-	r.hostMutex.Lock()
-	defer r.hostMutex.Unlock()
-
-	names := append([]string{name}, aliases...)
-
-	r.hosts[id] = &hostsEntry{Address: addr, Names: names}
+	r.Storage.AddHost(dnsStorage.Host{
+		Id:      id,
+		Address: addr,
+		Name:    name,
+		Aliases: aliases,
+	})
 	return nil
 }
 
 func (r *DnsResolver) RemoveHost(id string) error {
-	r.hostMutex.Lock()
-	defer r.hostMutex.Unlock()
-
-	delete(r.hosts, id)
+	r.Storage.RemoveHost(id)
 	return nil
 }
 
@@ -140,6 +129,9 @@ func (r *DnsResolver) Close() {
 	if r.serverUdp != nil {
 		r.serverUdp.Shutdown()
 	}
+	if r.serverTcp != nil {
+		r.serverTcp.Shutdown()
+	}
 }
 
 func (r *DnsResolver) ServeDNS(w dns.ResponseWriter, query *dns.Msg) {
@@ -159,59 +151,20 @@ func (r *DnsResolver) ServeDNS(w dns.ResponseWriter, query *dns.Msg) {
 }
 
 func (r *DnsResolver) responseForQuery(query *dns.Msg) (*dns.Msg, error) {
-	// TODO multiple queries?
+	// answer to first question
 	name := query.Question[0].Name
 
 	if query.Question[0].Qtype == dns.TypeA {
-		if addrs := r.findHost(name); len(addrs) > 0 {
+		if addrs := r.Storage.FindHostAddresses(name); len(addrs) > 0 {
 			return dnsAddressRecord(query, name, addrs), nil
 		}
 	} else if query.Question[0].Qtype == dns.TypePTR {
-		if hosts := r.findReverse(name); len(hosts) > 0 {
+		if hosts := r.Storage.FindReverseHost(name); len(hosts) > 0 {
 			return dnsPtrRecord(query, name, hosts), nil
 		}
 	}
 
 	return dnsNotFound(query), nil
-}
-
-func (r *DnsResolver) findHost(name string) (addrs []net.IP) {
-	r.hostMutex.RLock()
-	defer r.hostMutex.RUnlock()
-
-	for _, hosts := range r.hosts {
-		for _, hostName := range hosts.Names {
-			if dns.Fqdn(hostName) == name {
-				addrs = append(addrs, hosts.Address)
-			}
-		}
-	}
-	return
-}
-
-func (r *DnsResolver) GetHosts() (hosts map[string]hostsEntry) {
-	r.hostMutex.RLock()
-	defer r.hostMutex.RUnlock()
-
-	hosts = make(map[string]hostsEntry, len(r.hosts))
-	for  id, host := range r.hosts {
-		hosts[id] = *host
-	}
-	return
-}
-
-func (r *DnsResolver) findReverse(address string) (hosts []string) {
-	r.hostMutex.RLock()
-	defer r.hostMutex.RUnlock()
-
-	address = strings.ToLower(dns.Fqdn(address))
-
-	for _, entry := range r.hosts {
-		if r, _ := dns.ReverseAddr(entry.Address.String()); address == r && len(entry.Names) > 0 {
-			hosts = append(hosts, dns.Fqdn(entry.Names[0]))
-		}
-	}
-	return
 }
 
 func dnsAddressRecord(query *dns.Msg, name string, addrs []net.IP) *dns.Msg {

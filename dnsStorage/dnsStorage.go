@@ -1,81 +1,61 @@
 package dnsStorage
 
 import (
+	"log"
 	"net"
 	"sync"
 )
 
-type HostId string
-
 type Host struct {
-	Id      HostId
+	Id      string
 	Address net.IP
 	Name    string
 	Aliases []string
 }
 
-type Hosts map[HostId]Host
+type Hosts map[string]Host
 
 type DnsStorage struct {
 	// internal hosts
 	hosts      Hosts
 	hostsMutex sync.RWMutex
 
-	subscriptions []subscription
+	// subscription management
+	subscriptions map[*Subscription]bool
 
 	// communication channels
-	subscribeChannel  chan *subscription
-	addHostChannel    chan Host
-	removeHostChannel chan HostId
+	subscribeChannel   chan *Subscription
+	unsubscribeChannel chan *Subscription
+	addHostChannel     chan Host
+	removeHostChannel  chan string
 }
 
-type subscription struct {
+type Subscription struct {
 	onAdd    chan Host
-	onRemove chan HostId
+	onRemove chan string
 }
 
-func (d *DnsStorage) MainRoutine() {
-	for {
-		select {
-		case newSubscription := <-d.subscribeChannel:
-			d.subscriptions = append(d.subscriptions, *newSubscription)
-		case newHost := <-d.addHostChannel:
-			d.handleAddHost(newHost)
-		case hostId := <-d.removeHostChannel:
-			d.handleRemoveHost(hostId)
-		}
+func NewDnsStorage() (dnsStorage *DnsStorage) {
+	dnsStorage = &DnsStorage{
+		hosts: make(Hosts),
+
+		subscribeChannel:   make(chan *Subscription),
+		unsubscribeChannel: make(chan *Subscription),
+		addHostChannel:     make(chan Host, 4),
+		removeHostChannel:  make(chan string, 16),
 	}
+
+	go dnsStorage.MainRoutine()
+
+	return
 }
 
-func (d *DnsStorage) handleAddHost(host Host) {
-	// add to hosts list
-	d.hostsMutex.Lock()
-	_, exists := d.hosts[host.Id]
-	if !exists {
-		d.hosts[host.Id] = host
-		d.hostsMutex.Unlock()
-		return
-	}
-	d.hostsMutex.Unlock()
-
-	// publish to subscribes
-	for _, subscription := range d.subscriptions {
-		subscription.onAdd <- host
-	}
+func (d *DnsStorage) AddHost(host Host) {
+	d.addHostChannel <- host
+	log.Printf("dnsStorage: AddHost: %v", host)
 }
 
-func (d *DnsStorage) handleRemoveHost(hostId HostId) {
-	d.hostsMutex.Lock()
-	_, exists := d.hosts[hostId]
-	if !exists {
-		delete(d.hosts, hostId)
-		d.hostsMutex.Unlock()
-		return
-	}
-	d.hostsMutex.Unlock()
-
-	// publish to subscribes
-	for _, subscription := range d.subscriptions {
-		subscription.onRemove <- hostId
-	}
+func (d *DnsStorage) RemoveHost(id string) {
+	d.removeHostChannel <- id
+	log.Printf("dnsStorage: RemoveHost: %v", id)
 }

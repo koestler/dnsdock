@@ -12,7 +12,7 @@ type Host struct {
 }
 
 func HandleHostsGet(env *Environment, w http.ResponseWriter, r *http.Request) Error {
-	hosts := env.DnsResolver.GetHosts()
+	hosts := env.Storage.GetHosts()
 
 	response := make(map[string]Host, len(hosts))
 
@@ -22,9 +22,9 @@ func HandleHostsGet(env *Environment, w http.ResponseWriter, r *http.Request) Er
 		}
 
 		response[id] = Host{
-			Name:    host.Names[0],
+			Name:    host.Name,
 			Address: host.Address.String(),
-			Aliases: host.Names[1:],
+			Aliases: host.Aliases,
 		}
 	}
 

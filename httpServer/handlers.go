@@ -1,13 +1,13 @@
 package httpServer
 
 import (
-	"github.com/koestler/dnsdock/resolver"
+	"github.com/koestler/dnsdock/dnsStorage"
 	"log"
 	"net/http"
 )
 
 type Environment struct {
-	DnsResolver *resolver.DnsResolver
+	Storage *dnsStorage.DnsStorage
 }
 
 // Error represents a handler error. It provides methods for a HTTP status
