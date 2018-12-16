@@ -1,0 +1,25 @@
+<html>
+<head>
+</head>
+<body>
+<h1>DnsDock Websocket Test</h1>
+<ul id="log"></ul>
+
+<script type="text/javascript">
+    function log(msg) {
+        var logDiv = document.getElementById("log")
+        logDiv.innerHTML += '<li>' + msg + '</li>'
+        console.log(msg);
+    }
+
+    var socket = new WebSocket("ws://172.16.53.2/api/v0/ws/Hosts")
+    socket.addEventListener('open', function (event) {
+        log('Hello Server!');
+    });
+
+    socket.addEventListener('message', function (event) {
+        log(event.data);
+    });
+</script>
+</body>
+</html>
