@@ -9,7 +9,6 @@ import (
 )
 
 type Resolver interface {
-	AddHost(id string, addr net.IP, name string, aliases ...string) error
 	RemoveHost(id string) error
 
 	Listen() error
@@ -33,16 +32,6 @@ func NewResolver(storage *dnsStorage.DnsStorage) (*DnsResolver, error) {
 		stoppedUdp: make(chan struct{}),
 		stoppedTcp: make(chan struct{}),
 	}, nil
-}
-
-func (r *DnsResolver) AddHost(id string, addr net.IP, name string, aliases ...string) error {
-	r.Storage.AddHost(dnsStorage.Host{
-		Id:      id,
-		Address: addr,
-		Name:    name,
-		Aliases: aliases,
-	})
-	return nil
 }
 
 func (r *DnsResolver) RemoveHost(id string) error {

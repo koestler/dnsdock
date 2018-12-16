@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	dockerapi "github.com/fsouza/go-dockerclient"
+	"github.com/koestler/dnsdock/dnsStorage"
 	"github.com/koestler/dnsdock/resolver"
 	"log"
 	"net"
@@ -14,6 +15,7 @@ func registerContainers(
 	docker *dockerapi.Client,
 	events chan *dockerapi.APIEvents,
 	dns resolver.Resolver,
+	storage *dnsStorage.DnsStorage,
 	containerDomain string,
 	hostIP net.IP,
 ) error {
@@ -114,7 +116,14 @@ func registerContainers(
 			log.Printf("  --> add records (ip='%v', domain='%v', aliases=%v)", network.IPAddress, domain, aliases)
 
 			addr := net.ParseIP(network.IPAddress)
-			err = dns.AddHost(containerId+"_"+netId, addr, domain, aliases...)
+			storage.AddHost(dnsStorage.Host{
+				Id:               containerId + "_" + netId,
+				Address:          addr,
+				Name:             domain,
+				Aliases:          aliases,
+				Container:        container,
+			})
+
 			if err != nil {
 				return err
 			}

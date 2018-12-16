@@ -1,15 +1,17 @@
 package dnsStorage
 
 import (
+	"github.com/fsouza/go-dockerclient"
 	"net"
 	"sync"
 )
 
 type Host struct {
-	Id      string
-	Address net.IP
-	Name    string
-	Aliases []string
+	Id               string
+	Address          net.IP
+	Name             string
+	Aliases          []string
+	Container        *docker.Container
 }
 
 type Hosts map[string]Host
@@ -30,8 +32,8 @@ type DnsStorage struct {
 }
 
 type Subscription struct {
-	OnAdd         chan Host
-	OnRemove      chan string
+	OnAdd    chan Host
+	OnRemove chan string
 }
 
 func NewDnsStorage() (dnsStorage *DnsStorage) {

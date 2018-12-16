@@ -91,7 +91,7 @@ func run() error {
 		exitReason <- errors.New("dns resolver exited")
 	}()
 	go func() {
-		exitReason <- registerContainers(docker, nil, dnsResolver, localDomain, hostIP)
+		exitReason <- registerContainers(docker, nil, dnsResolver, storage, localDomain, hostIP)
 	}()
 
 	return <-exitReason
