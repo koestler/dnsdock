@@ -16,7 +16,9 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
-var Version string
+// is set through linker by build.sh
+var buildVersion string
+var buildTime string
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -27,10 +29,11 @@ func getopt(name, def string) string {
 
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "--version" {
-		fmt.Println(Version)
+		fmt.Println("github.com/koestler/dnsdock version:", buildVersion)
+		fmt.Println("build at:", buildTime)
 		os.Exit(0)
 	}
-	log.Printf("Starting koestler-dnsdock %s ...", Version)
+	log.Printf("Starting koestler-dnsdock %s ...", buildVersion)
 
 	err := run()
 	if err != nil {
